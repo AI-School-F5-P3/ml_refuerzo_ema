@@ -29,7 +29,8 @@ def preprocess_data(df):
     """
     Preprocesa los datos para el modelado
     """
-    X = df[['tenure', 'age', 'address', 'income', 'ed', 'employ']]
+    #X = df[['tenure', 'age', 'address', 'income', 'ed', 'employ']]
+    X = df.drop('custcat', axis = 1)
     y = df['custcat']
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
