@@ -155,11 +155,14 @@ def train_best_model(X_train, y_train, X_test, y_test):
     cv_scores = cross_val_score(model, X_train, y_train, cv=5)
     train_score = model.score(X_train, y_train)
     test_score = model.score(X_test, y_test)
-    print(f"Score medio en validación cruzada: {cv_scores.mean():.3f} (+/- {cv_scores.std() * 2:.3f})")
+    
+    overfitting_percentage = ((train_score - test_score) / train_score) * 100
+
+    print(f"Score medio en validación cruzada: {cv_scores.mean():.2f} (+/- {cv_scores.std() * 2:.2f})")
     print(f"Score en entrenamiento: {train_score:.3f}")
     print(f"Score en prueba: {test_score:.3f}")
-    print(f"Diferencia train-test: {train_score - test_score:.3f}")
-    
+    print(f"Overfitting: {overfitting_percentage:.2f}%")
+
     # Curvas de aprendizaje
     train_sizes, train_scores, test_scores = learning_curve(model, X_train, y_train, cv=5, n_jobs=-1)
     plt.figure(figsize=(8, 6))

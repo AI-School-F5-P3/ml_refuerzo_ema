@@ -22,7 +22,8 @@ def load_and_prepare_data():
     """
     Carga y prepara los datos para el modelado
     """
-    df = pd.read_csv('../data/proc_escal.csv')
+    #df = pd.read_csv('../data/processed.csv')
+    df = pd.read_csv('../data/teleCust1000t.csv')
     return df
 
 def preprocess_data(df):
@@ -103,11 +104,14 @@ def analyze_overfitting(model, X_train, X_test, y_train, y_test, model_name):
         train_score = model.score(X_train, y_train)
         test_score = model.score(X_test, y_test)
         
+        overfitting_percentage = ((train_score - test_score) / train_score) * 100
+
+        
         print(f"\nAnálisis de Overfitting para {model_name}:")
-        print(f"Score medio en validación cruzada: {cv_scores.mean():.3f} (+/- {cv_scores.std() * 2:.3f})")
+        print(f"Score medio en validación cruzada: {cv_scores.mean():.2f} (+/- {cv_scores.std() * 2:.2f})")
         print(f"Score en entrenamiento: {train_score:.3f}")
         print(f"Score en prueba: {test_score:.3f}")
-        print(f"Diferencia train-test: {train_score - test_score:.3f}")
+        print(f"Overfitting: {overfitting_percentage:.2f}%")
         
         plot_learning_curve(model, X_train, y_train, model_name)
     except Exception as e:
@@ -171,9 +175,69 @@ def train_and_evaluate_models(X_train, X_test, y_train, y_test):
     # Crear un DataFrame para comparar las métricas de los modelos
     metrics_df = pd.DataFrame(results)
     metrics_df.to_csv('../src/metrics/models_comparison.csv', index=False)
-    
+
     return metrics_df
 
+def get_model_metrics(metrics_df):
+    """
+    Extracts and formats desired metrics from the metrics DataFrame.
+
+    Args:
+        metrics_df (pd.DataFrame): DataFrame containing model evaluation metrics.
+
+    Returns:
+        list: List of lists, where each inner list represents the metrics for a model.
+    """
+    model_metrics = []
+    
+    for idx, row in metrics_df.iterrows():
+                # Obtener los scores de entrenamiento y prueba para calcular overfitting
+        train_score = row['Train Classification Report']['accuracy']
+        test_score = row['Test Classification Report']['accuracy']
+        
+        # Calcular el porcentaje de overfitting
+        overfitting_percentage = ((train_score - test_score) / train_score) * 100
+        
+        report = row["Test Classification Report"]
+        model_metrics.append([
+        row["Model"],
+        report["accuracy"],
+        report["macro avg"]["precision"],
+        report["macro avg"]["recall"],
+        report["macro avg"]["f1-score"],
+        overfitting_percentage  # Porcentaje de overfitting
+        ])
+    
+    return model_metrics
+
+def plot_model_performance(comparison_df):
+    """
+    Crea gráficos de barras para comparar accuracy y overfitting entre modelos
+    
+    Args:
+        comparison_df (pd.DataFrame): DataFrame con métricas de los modelos
+    """
+    # Preparar figure con dos subplots
+    plt.figure(figsize=(15, 6))
+    
+    # Subplot 1: Accuracy
+    plt.subplot(1, 2, 1)
+    sns.barplot(x="Model", y="Accuracy", data=comparison_df)
+    plt.title('Accuracy por Modelo')
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+    
+    # Subplot 2: Overfitting
+    plt.subplot(1, 2, 2)
+    sns.barplot(x="Model", y="ovefitting", data=comparison_df)
+    plt.title('Overfitting por Modelo')
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+    
+    # Guardar figura
+    plt.savefig('../src/metrics/model_performance_comparison.png', bbox_inches='tight')
+    plt.close()
+    
 def main():
     """
     Función principal que ejecuta todo el pipeline
@@ -186,6 +250,17 @@ def main():
     
     print("\n4. Entrenando y evaluando modelos...")
     metrics_df = train_and_evaluate_models(X_train, X_test, y_train, y_test)
+ 
+    # Now metrics_df is defined within main
+    model_metrics = get_model_metrics(metrics_df)   
+    comparison_df = pd.DataFrame(model_metrics, columns=["Model", "Accuracy", "Precision", "Recall", "F1-Score", "ovefitting"])
+
+    # Print or save the comparison DataFrame
+    print(comparison_df.to_string())  # Print the DataFrame as a string
+    comparison_df.to_csv("../src/metrics/model_comparison.csv", index=False)  # Save to a CSV file
+    
+    # Después de crear comparison_df
+    plot_model_performance(comparison_df)
     
     print("\n5. Proceso completado!")
     print(f"\nLas métricas de los modelos se han guardado en '../src/metrics/models_comparison.csv'.")
