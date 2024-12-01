@@ -1,0 +1,10 @@
+{
+    "final_train_loss": 1.3937163352966309,
+    "final_val_loss": 1.435494065284729,
+    "final_train_accuracy": 0.4412499964237213,
+    "final_val_accuracy": 0.33000001311302185,
+    "max_loss_gap": 0.772591233253479,
+    "max_accuracy_gap": 0.14750000834465027,
+    "overfitting_loss": -0.041777729988098145,
+    "overfitting_accuracy": 0.11124998331069946
+}

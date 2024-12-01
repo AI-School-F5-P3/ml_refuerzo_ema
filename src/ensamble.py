@@ -150,6 +150,35 @@ def train_best_model(X_train, y_train, X_test, y_test):
     model_filename = f'../src/models/best_model_{model_type}.pkl'
     with open(model_filename, 'wb') as f:
         pickle.dump(model, f)
+    # Análisis de Overfitting
+    print(f"\nAnálisis de Overfitting para {model_type}:")
+    cv_scores = cross_val_score(model, X_train, y_train, cv=5)
+    train_score = model.score(X_train, y_train)
+    test_score = model.score(X_test, y_test)
+    
+    overfitting_percentage = ((train_score - test_score) / train_score) * 100
+
+    print(f"Score medio en validación cruzada: {cv_scores.mean():.2f} (+/- {cv_scores.std() * 2:.2f})")
+    print(f"Score en entrenamiento: {train_score:.3f}")
+    print(f"Score en prueba: {test_score:.3f}")
+    print(f"Overfitting: {overfitting_percentage:.2f}%")
+
+    # Curvas de aprendizaje
+    train_sizes, train_scores, test_scores = learning_curve(model, X_train, y_train, cv=5, n_jobs=-1)
+    plt.figure(figsize=(8, 6))
+    plt.plot(train_sizes, train_scores.mean(axis=1), label='Train Score', color='blue')
+    plt.plot(train_sizes, test_scores.mean(axis=1), label='Test Score', color='green')
+    plt.fill_between(train_sizes, train_scores.mean(axis=1) - train_scores.std(axis=1),
+                    train_scores.mean(axis=1) + train_scores.std(axis=1), alpha=0.1, color='blue')
+    plt.fill_between(train_sizes, test_scores.mean(axis=1) - test_scores.std(axis=1),
+                    test_scores.mean(axis=1) + test_scores.std(axis=1), alpha=0.1, color='green')
+    plt.title(f'Curvas de Aprendizaje - {model_type}')
+    plt.xlabel('Tamaño de Entrenamiento')
+    plt.ylabel('Score')
+    plt.legend(loc='best')
+    plt.grid(True)
+    plt.savefig(f'../src/metrics/learning_curve_{model_type}.png')
+    plt.close()
     
     return model
 

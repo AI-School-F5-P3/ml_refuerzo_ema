@@ -8,10 +8,15 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier
+
+from sklearn.naive_bayes import GaussianNB
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.naive_bayes import ComplementNB
+import catboost as cb
+
 from sklearn.svm import SVC
 from sklearn.metrics import classification_report, confusion_matrix
 import seaborn as sns
-import matplotlib
 import matplotlib.pyplot as plt
 
 # Asegurarse de que los directorios existen
@@ -22,7 +27,6 @@ def load_and_prepare_data():
     """
     Carga y prepara los datos para el modelado
     """
-    #df = pd.read_csv('../data/processed.csv')
     df = pd.read_csv('../data/teleCust1000t.csv')
     return df
 
@@ -30,7 +34,6 @@ def preprocess_data(df):
     """
     Preprocesa los datos para el modelado
     """
-    #X = df[['tenure', 'age', 'address', 'income', 'ed', 'employ']]
     X = df.drop('custcat', axis = 1)
     y = df['custcat']
     
@@ -104,14 +107,14 @@ def analyze_overfitting(model, X_train, X_test, y_train, y_test, model_name):
         train_score = model.score(X_train, y_train)
         test_score = model.score(X_test, y_test)
         
-        overfitting_percentage = ((train_score - test_score) / train_score) * 100
+        overfitting = train_score - test_score
 
         
         print(f"\nAnálisis de Overfitting para {model_name}:")
         print(f"Score medio en validación cruzada: {cv_scores.mean():.2f} (+/- {cv_scores.std() * 2:.2f})")
-        print(f"Score en entrenamiento: {train_score:.3f}")
-        print(f"Score en prueba: {test_score:.3f}")
-        print(f"Overfitting: {overfitting_percentage:.2f}%")
+        print(f"Score en entrenamiento: {train_score:.2f}")
+        print(f"Score en prueba: {test_score:.2f}")
+        print(f"Overfitting: {overfitting:.2f}")
         
         plot_learning_curve(model, X_train, y_train, model_name)
     except Exception as e:
@@ -128,7 +131,21 @@ def train_and_evaluate_models(X_train, X_test, y_train, y_test):
         'Decision Tree': DecisionTreeClassifier(random_state=42, class_weight='balanced'),
         'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42, class_weight='balanced'),
         'KNN': KNeighborsClassifier(n_neighbors=optimal_k, weights='distance'),
-        'SVM': SVC(kernel='rbf', class_weight='balanced', probability=True)
+        'SVM': SVC(kernel='rbf', class_weight='balanced', probability=True),
+        
+        # Nuevos modelos
+        'Gaussian Naive Bayes': GaussianNB(),
+        'Multinomial Naive Bayes': MultinomialNB(),
+        'Complement Naive Bayes': ComplementNB(),
+        
+        # CatBoost
+        'CatBoost': cb.CatBoostClassifier(
+            iterations=100,
+            learning_rate=0.1,
+            random_seed=42,
+            loss_function='MultiClass',
+            verbose=0
+        )        
     }
     
     results = []
@@ -196,7 +213,7 @@ def get_model_metrics(metrics_df):
         test_score = row['Test Classification Report']['accuracy']
         
         # Calcular el porcentaje de overfitting
-        overfitting_percentage = ((train_score - test_score) / train_score) * 100
+        overfitting = train_score - test_score
         
         report = row["Test Classification Report"]
         model_metrics.append([
@@ -205,7 +222,7 @@ def get_model_metrics(metrics_df):
         report["macro avg"]["precision"],
         report["macro avg"]["recall"],
         report["macro avg"]["f1-score"],
-        overfitting_percentage  # Porcentaje de overfitting
+        overfitting # Porcentaje de overfitting
         ])
     
     return model_metrics
@@ -217,19 +234,36 @@ def plot_model_performance(comparison_df):
     Args:
         comparison_df (pd.DataFrame): DataFrame con métricas de los modelos
     """
+    # Crear una paleta de colores única para cada modelo
+    palette = sns.color_palette("viridis", n_colors=len(comparison_df))
+    
     # Preparar figure con dos subplots
     plt.figure(figsize=(15, 6))
     
     # Subplot 1: Accuracy
     plt.subplot(1, 2, 1)
-    sns.barplot(x="Model", y="Accuracy", data=comparison_df)
+    sns.barplot(x="Model", y="Accuracy", data=comparison_df, hue="Model", palette=palette, legend=False)
     plt.title('Accuracy por Modelo')
     plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
     
     # Subplot 2: Overfitting
     plt.subplot(1, 2, 2)
-    sns.barplot(x="Model", y="ovefitting", data=comparison_df)
+
+    # Ordenar el DataFrame de mayor a menor 'Overfitting'
+    #comparison_df_sorted = comparison_df.sort_values(by='Overfitting', ascending=False)
+    
+    # Asegurarse de que la columna 'Overfitting' sea numérica
+    comparison_df['Overfitting'] = pd.to_numeric(comparison_df['Overfitting'], errors='coerce')
+    
+    sns.barplot(x="Model", y="Overfitting", data=comparison_df, hue="Model", palette=palette, legend=False)
+
+    # Asegurar que el eje y empiece en 0
+    plt.ylim(0, comparison_df['Overfitting'].max() * 1.1)
+
+    # Graficar el gráfico de Overfitting ordenado
+    sns.barplot(x="Model", y="Overfitting", data=comparison_df, hue="Model", palette=palette, legend=False)
+    #sns.barplot(x="Model", y="Overfitting", data=comparison_df, hue="Model", palette=palette, legend=False)
     plt.title('Overfitting por Modelo')
     plt.xticks(rotation=45, ha='right')
     plt.tight_layout()
@@ -250,11 +284,13 @@ def main():
     
     print("\n4. Entrenando y evaluando modelos...")
     metrics_df = train_and_evaluate_models(X_train, X_test, y_train, y_test)
- 
+
     # Now metrics_df is defined within main
     model_metrics = get_model_metrics(metrics_df)   
-    comparison_df = pd.DataFrame(model_metrics, columns=["Model", "Accuracy", "Precision", "Recall", "F1-Score", "ovefitting"])
-
+    comparison_df = pd.DataFrame(model_metrics, columns=["Model", "Accuracy", "Precision", "Recall", "F1-Score", "Overfitting"])
+    comparison_df[["Accuracy", "Precision", "Recall", "F1-Score"]] = comparison_df[["Accuracy", "Precision", "Recall", "F1-Score"]].round(2)
+    comparison_df["Overfitting"] = comparison_df["Overfitting"].apply(lambda x: f"{x:.2f}")
+    
     # Print or save the comparison DataFrame
     print(comparison_df.to_string())  # Print the DataFrame as a string
     comparison_df.to_csv("../src/metrics/model_comparison.csv", index=False)  # Save to a CSV file
