@@ -1,5 +1,6 @@
 import os
 import pickle
+from sklearn.discriminant_analysis import StandardScaler
 import uvicorn
 from typing import List, Optional
 from pydantic import BaseModel, Field, field_validator
@@ -12,6 +13,8 @@ import pandas as pd
 import numpy as np
 from dotenv import load_dotenv
 
+from tensorflow.keras.models import load_model
+
 # Load environment variables
 load_dotenv()
 
@@ -19,7 +22,7 @@ load_dotenv()
 MYSQL_HOST = os.getenv('MYSQL_HOST', 'localhost')
 MYSQL_USER = os.getenv('MYSQL_USER', 'root')
 MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', '')
-MYSQL_DATABASE = os.getenv('MYSQL_DATABASE', 'customer_predictions')
+MYSQL_DATABASE = os.getenv('MYSQL_DATABASE', 'customer_predictions2')
 MYSQL_PORT = os.getenv('MYSQL_PORT', '3306')
 
 def create_database_if_not_exists():
@@ -77,9 +80,6 @@ class PredictionRecord(Base):
     retire = Column(Integer, nullable=False)
     gender = Column(Integer, nullable=False)
     reside = Column(Integer, nullable=False)
-    income_per_year_employed = Column(Float, nullable=False)
-    age_category = Column(Integer, nullable=False)
-    income_age_ratio = Column(Float, nullable=False)
     predicted_group = Column(Integer, nullable=False)
     prediction_probability = Column(Float, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -87,33 +87,26 @@ class PredictionRecord(Base):
 # Modelo de entrada para validación
 class CustomerInput(BaseModel):
     region: int = Field(..., ge=1, le=3)
-    tenure: int = Field(..., ge=1, le=100)
+    tenure: int = Field(..., ge=1, le=72)
     age: int = Field(..., ge=1, le=80)
     marital: int = Field(..., ge=0, le=1)
-    address: int = Field(..., ge=0, le=60)
+    address: int = Field(..., ge=0, le=55)
     income: float
     ed: int = Field(..., ge=1, le=5)
-    employ: int = Field(..., ge=1, le=5)
+    employ: int = Field(..., ge=1, le=47)
     retire: int = Field(..., ge=0, le=1)
     gender: int = Field(..., ge=0, le=1)
     reside: int = Field(..., ge=1, le=8)
-    income_per_year_employed: float
-    age_category: int = Field(..., ge=1, le=4)
-    income_age_ratio: float
     
-    @field_validator('income', 'income_per_year_employed', 'income_age_ratio')
-    def validate_positive_values(cls, v):
-        if v < 0:
-            raise ValueError('Los valores de ingreso deben ser positivos')
-        return v
-
 # Cargar modelo (asegúrate de que la ruta sea correcta)
-def load_ml_model(model_path: str = "../src/models/best_model_catboost.pkl"):
+def load_ml_model(model_path: str = "../src/models/rn_model.keras"):
     try:
-        with open(model_path, "rb") as file:
-            return pickle.load(file)
+        model = load_model(model_path)
+        return model
     except FileNotFoundError:
         raise HTTPException(status_code=500, detail="Modelo no encontrado")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error cargando modelo: {str(e)}")
 
 # Dependencia para obtener sesión de base de datos
 def get_db():
@@ -152,31 +145,28 @@ async def predict_customer_group(
         # Convertir datos a DataFrame
         input_df = pd.DataFrame([customer_data.dict()])
         
-        # Validar entrada
-        if input_df.isnull().values.any():
-            raise HTTPException(status_code=422, detail="Faltan datos en la solicitud.")
+        # Escalar los datos (asegúrate de usar el mismo scaler que en el entrenamiento)
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(input_df)
         
         # Realizar predicción
-        prediction = model.predict(input_df)
-        probabilities = model.predict_proba(input_df)
-        
-        # Obtener grupo predicho y probabilidad
-        predicted_group = int(prediction[0])
-        predicted_probability = float(probabilities[0][predicted_group])
+        prediction_proba = model.predict(X_scaled)
+        predicted_group = np.argmax(prediction_proba, axis=1)[0]
+        predicted_probability = prediction_proba[0][predicted_group]
         
         # Almacenar predicción en base de datos
         prediction_record = PredictionRecord(
             **customer_data.dict(),
-            predicted_group=predicted_group,
-            prediction_probability=predicted_probability
+            predicted_group=int(predicted_group),
+            prediction_probability=float(predicted_probability)
         )
         db.add(prediction_record)
         db.commit()
         db.refresh(prediction_record)
         
         return {
-            "predicted_group": predicted_group,
-            "probability": predicted_probability,
+            "predicted_group": int(predicted_group),
+            "probability": float(predicted_probability),
             "prediction_id": prediction_record.id
         }
     
@@ -250,20 +240,3 @@ if __name__ == "__main__":
     
     # Iniciar servidor
     uvicorn.run(app, host="127.0.0.1", port=8000)
-'''`Dependencias adicionales:
-```bash
-pip install fastapi uvicorn sqlalchemy pymysql python-dotenv mysqlclient pandas numpy scikit-learn
-```
-
-Cambios principales:
-1. Uso de MySQL con SQLAlchemy
-2. URL de conexión configurable via `.env`
-3. Modelo de base de datos más detallado
-4. Función para crear base de datos si no existe
-5. Configuración de pool de conexiones
-
-Antes de ejecutar, asegúrate de:
-- Tener MySQL instalado
-- Crear un usuario con permisos
-- Instalar las dependencias
-'''

@@ -81,7 +81,7 @@ def plot_learning_curve(estimator, X, y, title):
         test_mean = np.mean(test_scores, axis=1)
         test_std = np.std(test_scores, axis=1)
         
-        plt.figure(figsize=(10, 6))
+        plt.figure(figsize=(8, 4))
         plt.plot(train_sizes, train_mean, label='Training score', color='blue', marker='o')
         plt.fill_between(train_sizes, train_mean - train_std, train_mean + train_std, alpha=0.15, color='blue')
         plt.plot(train_sizes, test_mean, label='Cross-validation score', color='green', marker='o')
@@ -92,7 +92,7 @@ def plot_learning_curve(estimator, X, y, title):
         plt.title(f'Learning Curve - {title}')
         plt.legend(loc='lower right')
         plt.grid(True)
-        plt.savefig(f'../src/metrics/learning_curve_{title.lower().replace(" ", "_")}.png')
+        plt.savefig(f'../src/metrics/{title.lower().replace(" ", "_")}_learning_curve_.png')
         plt.close()
     except Exception as e:
         print(f"Error al generar la curva de aprendizaje para {title}: {str(e)}")
@@ -127,16 +127,16 @@ def train_and_evaluate_models(X_train, X_test, y_train, y_test):
     optimal_k = find_optimal_k(X_train, X_test, y_train, y_test)
     
     models = {
-        'Logistic Regression': LogisticRegression(max_iter=1000, class_weight='balanced'),
-        'Decision Tree': DecisionTreeClassifier(random_state=42, class_weight='balanced'),
-        'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42, class_weight='balanced'),
+        'LogisticRegresion': LogisticRegression(max_iter=1000, class_weight='balanced'),
+        'DecisionTree': DecisionTreeClassifier(random_state=42, class_weight='balanced'),
+        'RandomForest': RandomForestClassifier(n_estimators=100, random_state=42, class_weight='balanced'),
         'KNN': KNeighborsClassifier(n_neighbors=optimal_k, weights='distance'),
         'SVM': SVC(kernel='rbf', class_weight='balanced', probability=True),
         
         # Nuevos modelos
-        'Gaussian Naive Bayes': GaussianNB(),
-        'Multinomial Naive Bayes': MultinomialNB(),
-        'Complement Naive Bayes': ComplementNB(),
+        'GaussianNB': GaussianNB(),
+        'MultimodalNB': MultinomialNB(),
+        'ComplementNB': ComplementNB(),
         
         # CatBoost
         'CatBoost': cb.CatBoostClassifier(
@@ -176,14 +176,14 @@ def train_and_evaluate_models(X_train, X_test, y_train, y_test):
             results.append(model_metrics)
             
             # Visualizar la matriz de confusión
-            plt.figure(figsize=(8, 6))
+            plt.figure(figsize=(8, 4))
             cm = model_metrics['Confusion Matrix']
             sns.heatmap(cm, annot=True, fmt='d', xticklabels=[f'Clase {i}' for i in sorted(set(y_test))], 
                         yticklabels=[f'Clase {i}' for i in sorted(set(y_test))])
             plt.title(f'Matriz de Confusión - {name}')
             plt.xlabel('Predicción')
             plt.ylabel('Valor Real')
-            plt.savefig(f'../src/metrics/confusion_matrix_{name.lower().replace(" ", "_")}.png')
+            plt.savefig(f'../src/metrics/{name.lower().replace(" ", "_")}_confusion_matriz.png')
             plt.close()
         
         except Exception as e:
@@ -288,7 +288,7 @@ def main():
     # Now metrics_df is defined within main
     model_metrics = get_model_metrics(metrics_df)   
     comparison_df = pd.DataFrame(model_metrics, columns=["Model", "Accuracy", "Precision", "Recall", "F1-Score", "Overfitting"])
-    comparison_df[["Accuracy", "Precision", "Recall", "F1-Score"]] = comparison_df[["Accuracy", "Precision", "Recall", "F1-Score"]].round(2)
+    comparison_df[["Model","Accuracy", "Precision", "Recall", "F1-Score"]] = comparison_df[["Model","Accuracy", "Precision", "Recall", "F1-Score"]].round(2)
     comparison_df["Overfitting"] = comparison_df["Overfitting"].apply(lambda x: f"{x:.2f}")
     
     # Print or save the comparison DataFrame
