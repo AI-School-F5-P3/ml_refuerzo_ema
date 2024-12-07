@@ -1,0 +1,10 @@
+Model,Accuracy,Precision,Recall,F1-Score,Overfitting
+LogisticRegresion,0.43,0.43,0.43,0.43,0.00
+DecisionTree,0.34,0.33,0.34,0.33,0.67
+RandomForest,0.34,0.33,0.33,0.33,0.66
+KNN,0.35,0.34,0.33,0.33,0.65
+SVM,0.36,0.37,0.36,0.34,0.01
+GaussianNB,0.35,0.32,0.32,0.31,0.04
+MultimodalNB,0.36,0.35,0.36,0.34,0.03
+ComplementNB,0.38,0.38,0.37,0.36,0.01
+CatBoost,0.36,0.34,0.35,0.34,0.38
