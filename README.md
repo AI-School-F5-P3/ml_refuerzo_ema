@@ -1,18 +1,52 @@
-# ml_refuerzo_ema
-Proyecto Telecomunicaciones para optimizar campañas de marketing
+# Proyecto de Clasificación de Clientes
 
-# Acerca del conjunto de datos
+## Descripción
+Este proyecto utiliza datos demográficos para predecir la pertenencia de un cliente a uno de cuatro grupos definidos. La solución incluye un modelo de clasificación, seguimiento con MLflow, una API para predicciones y un entorno contenedorizado con Docker.
 
-Imaginemos que un proveedor de telecomunicaciones ha segmentado su base de clientes según patrones de uso de servicios, categorizando a los clientes en cuatro grupos. Si los datos demográficos pueden predecir la pertenencia a un grupo, la empresa podría personalizar ofertas para clientes potenciales.
+## Estructura del Proyecto
+- **data/**: Datos originales y procesados.
+- **src/**: Código fuente, incluyendo modelos, API y utilidades.
+- **mlruns/**: Directorio de experimentos MLflow.
+- **docker/**: Archivos para contenedorización.
+- **metrics/**: Reportes de rendimiento.
 
-Este es un problema de clasificación, donde, dado un conjunto de datos con etiquetas predefinidas, necesitamos construir un modelo que prediga la clase de un caso nuevo o desconocido.
+## Configuración
+### 1. Requisitos
+- Python 3.9
+- Docker y Docker Compose
 
-El ejemplo se centra en usar datos demográficos, como región, edad y estado civil, para predecir patrones de uso.
+### 2. Instalación
+#### Sin Docker
+1. Crear un entorno virtual:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
 
-La variable objetivo, llamada custcat, tiene cuatro valores posibles que corresponden a los cuatro grupos de clientes:
+2. Configurar la base de datos en .env.
 
-Servicio Básico
-Servicio Electrónico
-Servicio Plus
-Servicio Total
-Nuestro objetivo es construir un clasificador para predecir la clase de casos desconocidos. Utilizaremos un tipo específico de clasificación llamado K-Nearest Neighbors (KNN).
+3. Ejecutar:
+
+- **API**:
+   uvicorn src.api.api:app --reload
+
+- **Panel de control Streamlit** :
+   streamlit run src/app_kpi_ov.py
+
+#### Con Docker
+1. Construir y levantar contenedores:
+   docker-compose up --build
+
+2. Acceder:
+- **API rápida**: http ://localhost :8000
+- **Flujo de ml** : http ://localhost :5000
+
+## **Funcionalidades**
+**API**
+- predicción : Enviar datos demográficos y recibir predicciones.
+- Consultas : Acceso al historial de predicciones almacenado en MySQL.
+
+**Seguimiento de MLflow**
+- Logueo de métricas de los modelos.
+- Almacenamiento de modelos y artefactos.
+
