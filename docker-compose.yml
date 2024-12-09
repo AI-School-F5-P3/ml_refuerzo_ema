@@ -1,0 +1,37 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8000:8000"  # FastAPI
+      - "5000:5000"  # MLflow
+    environment:
+      - MYSQL_HOST=db
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=admin
+      - MYSQL_DATABASE=customer_predictions2
+      - MYSQL_PORT=3306
+    depends_on:
+      - db
+    volumes:
+      - ./mlruns:/app/mlruns
+    env_file:
+      - .env  # Mover esta propiedad dentro del servicio
+
+  db:
+    image: mysql:8.0
+    container_name: mysql_db
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_DATABASE: customer_predictions2
+    volumes:
+      - db_data:/var/lib/mysql
+    env_file:
+      - .env  # Opcional si necesitas variables de entorno aquí también
+
+volumes:
+  db_data:
+
